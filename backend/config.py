@@ -20,7 +20,18 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     """Production configuration"""
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    # Debug database URL
+    _db_url = os.getenv('DATABASE_URL')
+    print(f"DEBUG: DATABASE_URL = {_db_url}")
+    
+    if _db_url and _db_url.startswith('postgres://'):
+        # Convert postgres:// to postgresql:// for newer versions
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+        print(f"DEBUG: Converted DATABASE_URL to: {_db_url}")
+    
+    SQLALCHEMY_DATABASE_URI = _db_url or 'sqlite:///resume_analyzer.db'
+    print(f"DEBUG: Final SQLALCHEMY_DATABASE_URI = {SQLALCHEMY_DATABASE_URI}")
+    
     JWT_COOKIE_SECURE = True
     FLASK_DEBUG = False
 
