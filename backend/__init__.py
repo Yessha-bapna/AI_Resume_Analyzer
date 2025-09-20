@@ -21,20 +21,10 @@ limiter = Limiter(key_func=get_remote_address)
 def create_app():
     app = Flask(__name__)
     
-    # Configuration
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///resume_analyzer.db')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-secret-string')
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False  # Tokens don't expire
-    app.config['JWT_TOKEN_LOCATION'] = ['cookies']
-    app.config['JWT_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
-    app.config['JWT_COOKIE_CSRF_PROTECT'] = False  # Disable CSRF for simplicity
-    app.config['JWT_COOKIE_NAME'] = 'access_token'
-    
-    # File upload configuration
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-    app.config['UPLOAD_FOLDER'] = 'uploads'
+    # Load environment-specific configuration
+    config_name = os.getenv('FLASK_ENV', 'development')
+    from config import config
+    app.config.from_object(config[config_name])
     
     # Initialize extensions
     db.init_app(app)

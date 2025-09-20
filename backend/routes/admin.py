@@ -293,3 +293,8 @@ def get_system_status():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for deployment"""
+    return jsonify({'status': 'healthy', 'message': 'Resume Analyzer API is running'}), 200
