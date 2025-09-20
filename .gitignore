@@ -331,7 +331,6 @@ Thumbs.db
 *.old
 
 # Configuration files with sensitive data
-config.py
 secrets.py
 .secrets
 
