@@ -1,210 +1,167 @@
 import google.generativeai as genai
 import os
-from sentence_transformers import SentenceTransformer
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-import json
-from typing import Dict, List, Tuple
+import re
+from typing import Dict, List, Any
 
 class AIAnalyzer:
     def __init__(self):
-        # Initialize Gemini
-        self.gemini_api_key = os.getenv('GEMINI_API_KEY')
-        if not self.gemini_api_key:
-            raise Exception("GEMINI_API_KEY not found in environment variables")
+        # Configure Gemini API
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is required")
         
-        genai.configure(api_key=self.gemini_api_key)
+        genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-pro')
-        
-        # Initialize sentence transformer for embeddings
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        
-    def get_embeddings(self, text: str) -> np.ndarray:
-        """Get embeddings for text"""
-        try:
-            embeddings = self.embedding_model.encode([text])
-            return embeddings[0]
-        except Exception as e:
-            raise Exception(f"Error generating embeddings: {str(e)}")
     
-    def calculate_semantic_similarity(self, resume_text: str, job_description: str) -> float:
-        """Calculate semantic similarity between resume and job description"""
+    def perform_comprehensive_analysis(self, resume_data: Dict, job_description: str) -> Dict[str, Any]:
+        """Perform comprehensive resume analysis using Gemini AI"""
         try:
-            resume_embedding = self.get_embeddings(resume_text)
-            job_embedding = self.get_embeddings(job_description)
+            # Extract key information from resume
+            resume_text = self._extract_resume_text(resume_data)
             
-            similarity = cosine_similarity([resume_embedding], [job_embedding])[0][0]
-            return float(similarity)
-        except Exception as e:
-            raise Exception(f"Error calculating semantic similarity: {str(e)}")
-    
-    def extract_job_requirements(self, job_description: str) -> Dict:
-        """Extract structured requirements from job description using Gemini"""
-        try:
-            prompt = f"""
-            Analyze the following job description and extract structured information:
+            # Create analysis prompt
+            prompt = self._create_analysis_prompt(resume_text, job_description)
             
-            Job Description:
-            {job_description}
-            
-            Please extract and return in JSON format:
-            1. required_skills: List of technical skills that are must-have
-            2. preferred_skills: List of technical skills that are nice-to-have
-            3. required_education: Minimum education requirements
-            4. required_experience: Years of experience required
-            5. key_responsibilities: Main job responsibilities
-            6. company_info: Company name and industry
-            
-            Return only valid JSON format.
-            """
-            
+            # Get AI analysis
             response = self.model.generate_content(prompt)
-            result = json.loads(response.text.strip())
+            analysis_text = response.text
             
-            return result
+            # Parse the response
+            return self._parse_analysis_response(analysis_text)
+            
         except Exception as e:
-            # Fallback to basic extraction if Gemini fails
-            return self._basic_job_analysis(job_description)
+            print(f"Error in AI analysis: {e}")
+            return self._get_fallback_analysis()
     
-    def _basic_job_analysis(self, job_description: str) -> Dict:
-        """Basic job analysis fallback"""
-        # Simple keyword extraction
-        skills_keywords = [
-            'python', 'java', 'javascript', 'react', 'node.js', 'sql', 'html', 'css',
-            'machine learning', 'data science', 'aws', 'docker', 'kubernetes',
-            'git', 'github', 'agile', 'scrum', 'leadership', 'communication'
-        ]
+    def _extract_resume_text(self, resume_data: Dict) -> str:
+        """Extract and format resume text for analysis"""
+        text_parts = []
         
-        found_skills = []
-        job_lower = job_description.lower()
+        # Add personal information
+        if resume_data.get('personal_info'):
+            personal = resume_data['personal_info']
+            text_parts.append(f"Name: {personal.get('name', 'N/A')}")
+            text_parts.append(f"Email: {personal.get('email', 'N/A')}")
+            text_parts.append(f"Phone: {personal.get('phone', 'N/A')}")
         
-        for skill in skills_keywords:
-            if skill in job_lower:
-                found_skills.append(skill)
+        # Add education
+        if resume_data.get('education'):
+            text_parts.append("\nEducation:")
+            for edu in resume_data['education']:
+                text_parts.append(f"- {edu.get('degree', '')} from {edu.get('institution', '')}")
         
-        return {
-            'required_skills': found_skills[:5],  # Top 5 skills
-            'preferred_skills': found_skills[5:],  # Remaining skills
-            'required_education': 'Bachelor\'s degree',
-            'required_experience': '2-5 years',
-            'key_responsibilities': ['Develop software applications', 'Collaborate with team'],
-            'company_info': {'name': 'Company', 'industry': 'Technology'}
-        }
+        # Add experience
+        if resume_data.get('experience'):
+            text_parts.append("\nExperience:")
+            for exp in resume_data['experience']:
+                text_parts.append(f"- {exp.get('title', '')} at {exp.get('company', '')}")
+                if exp.get('description'):
+                    text_parts.append(f"  {exp['description']}")
+        
+        # Add skills
+        if resume_data.get('skills'):
+            text_parts.append(f"\nSkills: {', '.join(resume_data['skills'])}")
+        
+        # Add projects
+        if resume_data.get('projects'):
+            text_parts.append("\nProjects:")
+            for proj in resume_data['projects']:
+                text_parts.append(f"- {proj.get('name', '')}: {proj.get('description', '')}")
+        
+        return "\n".join(text_parts)
     
-    def analyze_resume_fit(self, resume_data: Dict, job_requirements: Dict) -> Dict:
-        """Analyze how well resume fits job requirements using Gemini"""
-        try:
-            resume_text = resume_data.get('cleaned_text', '')
-            resume_skills = resume_data.get('skills', [])
-            
-            prompt = f"""
-            Analyze the following resume against the job requirements and provide a detailed assessment:
-            
-            Job Requirements:
-            {json.dumps(job_requirements, indent=2)}
-            
-            Resume Content:
-            {resume_text}
-            
-            Resume Skills Found:
-            {', '.join(resume_skills)}
-            
-            Please provide analysis in JSON format with:
-            1. relevance_score: Score from 0-100 indicating how well the resume matches the job
-            2. verdict: "High", "Medium", or "Low" suitability
-            3. missing_skills: List of required skills not found in resume
-            4. missing_certifications: List of certifications that would help
-            5. missing_projects: Types of projects that would strengthen the application
-            6. improvement_suggestions: Specific actionable advice for the candidate
-            7. strengths: What the candidate does well
-            8. analysis_summary: Brief summary of the assessment
-            
-            Return only valid JSON format.
-            """
-            
-            response = self.model.generate_content(prompt)
-            result = json.loads(response.text.strip())
-            
-            # Ensure score is within 0-100 range
-            if 'relevance_score' in result:
-                result['relevance_score'] = max(0, min(100, result['relevance_score']))
-            
-            return result
-        except Exception as e:
-            # Fallback analysis
-            return self._fallback_analysis(resume_data, job_requirements)
-    
-    def _fallback_analysis(self, resume_data: Dict, job_requirements: Dict) -> Dict:
-        """Fallback analysis when Gemini fails"""
-        resume_skills = resume_data.get('skills', [])
-        required_skills = job_requirements.get('required_skills', [])
-        preferred_skills = job_requirements.get('preferred_skills', [])
-        
-        # Calculate basic matching
-        matched_required = len(set(resume_skills) & set([s.lower() for s in required_skills]))
-        matched_preferred = len(set(resume_skills) & set([s.lower() for s in preferred_skills]))
-        
-        # Simple scoring
-        required_score = (matched_required / max(len(required_skills), 1)) * 70
-        preferred_score = (matched_preferred / max(len(preferred_skills), 1)) * 30
-        total_score = min(100, required_score + preferred_score)
-        
-        # Determine verdict
-        if total_score >= 70:
-            verdict = "High"
-        elif total_score >= 40:
-            verdict = "Medium"
-        else:
-            verdict = "Low"
-        
-        # Find missing skills
-        missing_skills = [skill for skill in required_skills if skill.lower() not in resume_skills]
-        
-        return {
-            'relevance_score': total_score,
-            'verdict': verdict,
-            'missing_skills': missing_skills,
-            'missing_certifications': ['AWS Certification', 'Google Cloud Certification'],
-            'missing_projects': ['Web Application Project', 'Database Design Project'],
-            'improvement_suggestions': [
-                'Add more technical skills to your resume',
-                'Include specific project examples',
-                'Highlight relevant work experience'
+    def _create_analysis_prompt(self, resume_text: str, job_description: str) -> str:
+        """Create a comprehensive analysis prompt for Gemini"""
+        return f"""
+        Analyze this resume against the job description and provide a detailed assessment.
+
+        JOB DESCRIPTION:
+        {job_description}
+
+        RESUME:
+        {resume_text}
+
+        Please provide your analysis in the following JSON format:
+        {{
+            "relevance_score": 85,
+            "verdict": "High",
+            "missing_skills": ["Python", "Docker"],
+            "missing_certifications": ["AWS Certified"],
+            "missing_projects": ["Machine Learning Project"],
+            "improvement_suggestions": [
+                "Add more Python projects to your portfolio",
+                "Consider getting AWS certification",
+                "Include specific metrics in your experience descriptions"
             ],
-            'strengths': ['Basic technical skills', 'Educational background'],
-            'analysis_summary': f'Resume shows {verdict.lower()} suitability for this position'
-        }
+            "strengths": [
+                "Strong educational background",
+                "Relevant work experience"
+            ],
+            "weaknesses": [
+                "Limited project portfolio",
+                "Missing some key technical skills"
+            ]
+        }}
+
+        Scoring Guidelines:
+        - 90-100: Exceptional match, highly recommended
+        - 80-89: Strong match, good candidate
+        - 70-79: Moderate match, acceptable with improvements
+        - 60-69: Weak match, needs significant improvement
+        - Below 60: Poor match, not recommended
+
+        Verdict Guidelines:
+        - High: 80+ score
+        - Medium: 60-79 score
+        - Low: Below 60 score
+
+        Please ensure the response is valid JSON format only.
+        """
     
-    def perform_comprehensive_analysis(self, resume_data: Dict, job_description: str) -> Dict:
-        """Perform comprehensive resume analysis"""
+    def _parse_analysis_response(self, response_text: str) -> Dict[str, Any]:
+        """Parse the AI response and extract structured data"""
         try:
-            # Extract job requirements
-            job_requirements = self.extract_job_requirements(job_description)
+            # Try to extract JSON from the response
+            import json
+            import re
             
-            # Calculate semantic similarity
-            semantic_score = self.calculate_semantic_similarity(
-                resume_data.get('cleaned_text', ''),
-                job_description
-            )
-            
-            # Analyze resume fit
-            analysis_result = self.analyze_resume_fit(resume_data, job_requirements)
-            
-            # Combine results
-            final_result = {
-                'semantic_similarity': semantic_score,
-                'job_requirements': job_requirements,
-                **analysis_result
-            }
-            
-            # Adjust final score based on semantic similarity
-            if 'relevance_score' in final_result:
-                semantic_adjustment = semantic_score * 20  # 0-20 points from semantic similarity
-                final_result['relevance_score'] = min(100, 
-                    (final_result['relevance_score'] * 0.8) + semantic_adjustment
-                )
-            
-            return final_result
-            
+            # Look for JSON in the response
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+                analysis = json.loads(json_str)
+                
+                # Validate and clean the response
+                return {
+                    'relevance_score': float(analysis.get('relevance_score', 0)),
+                    'verdict': analysis.get('verdict', 'Low'),
+                    'missing_skills': analysis.get('missing_skills', []),
+                    'missing_certifications': analysis.get('missing_certifications', []),
+                    'missing_projects': analysis.get('missing_projects', []),
+                    'improvement_suggestions': analysis.get('improvement_suggestions', []),
+                    'strengths': analysis.get('strengths', []),
+                    'weaknesses': analysis.get('weaknesses', [])
+                }
+            else:
+                return self._get_fallback_analysis()
+                
         except Exception as e:
-            raise Exception(f"Error in comprehensive analysis: {str(e)}")
+            print(f"Error parsing AI response: {e}")
+            return self._get_fallback_analysis()
+    
+    def _get_fallback_analysis(self) -> Dict[str, Any]:
+        """Provide fallback analysis when AI fails"""
+        return {
+            'relevance_score': 50.0,
+            'verdict': 'Medium',
+            'missing_skills': ['Technical skills need verification'],
+            'missing_certifications': ['Relevant certifications recommended'],
+            'missing_projects': ['Portfolio projects needed'],
+            'improvement_suggestions': [
+                'Please ensure all information is complete and accurate',
+                'Consider adding more detailed project descriptions',
+                'Verify technical skills and certifications'
+            ],
+            'strengths': ['Resume submitted successfully'],
+            'weaknesses': ['Analysis incomplete due to technical issues']
+        }
