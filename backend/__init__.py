@@ -25,12 +25,22 @@ def create_app():
     config_name = os.getenv('FLASK_ENV', 'development')
     from config import config
     app.config.from_object(config[config_name])
+
+    # ✅ Define allowed origins
+    allowed_origins = [
+        "http://localhost:3000",  # Dev
+        "https://ai-resume-analyzer-five-lake.vercel.app"  # Vercel Production
+    ]
     
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    cors.init_app(app, supports_credentials=True)
+    cors.init_app(
+        app,
+        resources={r"/api/*": {"origins": allowed_origins}},
+        supports_credentials=True
+    )
     limiter.init_app(app)
     
     # Create upload directory
