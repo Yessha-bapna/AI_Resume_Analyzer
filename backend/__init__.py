@@ -29,7 +29,8 @@ def create_app():
     # ✅ Define allowed origins
     allowed_origins = [
         "http://localhost:3000",  # Dev
-        "https://ai-resume-analyzer-five-lake.vercel.app"  # Vercel Production
+        "https://ai-resume-analyzer-five-lake.vercel.app"  # Vercel Production,
+        "https://ai-resume-analyzer-yesshas-projects.vercel.app"
     ]
     
     # Initialize extensions
