@@ -2,8 +2,8 @@
 # AI Resume Analyzer System
 
 <p align="center">
-  <img src="./website_screenshot.png" alt="Website Screenshot" width="700"/>
-</p>
+  <img src="./frontend/assets/Screenshot (358).png" width="700"/>
+</p> 
 
 > **Note:** Replace the above image with your actual website screenshot.
 
@@ -75,17 +75,31 @@ This approach ensures both speed (hard checks) and contextual understanding (LLM
 ## Web Application
 
 ### Admin Dashboard
+
+<img src="./frontend/assets/Screenshot (361).png" alt="Admin Dashboard" width="700"/>
+
+<img src="./frontend/assets/Screenshot (362).png" alt="Admin Dashboard" width="700"/>
+
+<img src="./frontend/assets/Screenshot (364).png" alt="Admin Dashboard" width="700"/>
+
+
 - Upload job descriptions
 - View and filter ranked resumes for each job
 - Download reports
 
 ### User Dashboard
+
+<img src="./frontend/assets/Screenshot (360).png" width="700"/>
+
 - Register/login
 - View available job descriptions
 - Upload resumes for specific jobs
 - View analysis results, missing skills, and suggestions
 
 ### AI Analysis
+
+<img src="frontend/src/assets/Screenshot (360).png" width="700"/>
+
 - Uses Gemini LLM and sentence embeddings for semantic matching
 - Combines hard and soft matching for robust scoring
 
@@ -93,6 +107,9 @@ This approach ensures both speed (hard checks) and contextual understanding (LLM
 - Queue-based system with automatic reordering as new resumes are analyzed
 
 ### Authentication
+
+<img src="./frontend/assets/Screenshot (358).png" alt="Admin Dashboard" width="700"/>
+
 - Separate admin and user authentication for secure access
 
 ## Tech Stack
