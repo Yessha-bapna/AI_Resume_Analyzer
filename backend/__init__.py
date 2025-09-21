@@ -39,7 +39,7 @@ def create_app():
     jwt.init_app(app)
     cors.init_app(
         app,
-        resources={r"/api/*": {"origins": allowed_origins}},
+        resources={r"/api/*": {"origins": "*"}},
         supports_credentials=True
     )
     limiter.init_app(app)
