@@ -1,10 +1,10 @@
 import axios from 'axios'
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://ai-resume-analyzer-l70u.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
-  },
+  }
 })
 
 // Request interceptor - cookies are automatically sent with requests
